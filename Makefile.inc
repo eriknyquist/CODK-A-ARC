@@ -1,7 +1,10 @@
 ARC32_DIR      = $(ARDUINOSW_DIR)/arc32
+
+
 CPP            = $(ARC32_DIR)/bin/arc-elf32-g++
 CC             = $(ARC32_DIR)/bin/arc-elf32-gcc
 AR             = $(ARC32_DIR)/bin/arc-elf32-ar
+AS             = $(ARC32_DIR)/bin/arc-elf32-as
 STRIP          = $(ARC32_DIR)/bin/arc-elf32-strip
 OBJCOPY        = $(ARC32_DIR)/bin/arc-elf32-objcopy
 sketch_converter = $(ARDUINOSW_DIR)/sketch-converter
@@ -65,6 +68,9 @@ ARFLAGS=rcs
 arduino=$(ARDUINOSW_DIR)/sketch-converter
 LIB_DIR=$arduino/../libraries
 
+LIBARC32_A = libarc32drv_arduino101.a
+LIBARC32_COMPILE = $(CORELIBS_DIR)/system/libarc32_arduino101/$(LIBARC32_A)
+LIBARC32_INSTALL = $(CORELIBS_DIR)/variants/arduino_101/$(LIBARC32_A)
 CORE_A = $(CORELIBS_DIR)/cores/arduino/core.a
 
 CHECK = splint
@@ -90,7 +96,8 @@ debug:
 	@echo $(LIBSRCS)
 
 libarc32_arduino101:
-	cd $(CORELIBS_DIR)/system/libarc32_arduino101/; make; cd -
+	cd $(CORELIBS_DIR)/system/libarc32_arduino101/; CC=$(CC) AS=$(AS) make; cd -
+	cp $(LIBARC32_COMPILE) $(LIBARC32_INSTALL)
 
 %.o: %.cpp
 	@echo "------"
@@ -120,7 +127,7 @@ $(OUTNAME).elf: $(OBJS) $(LIBOBJS) $(CORE_A)
 	-Wl,--whole-archive "-larc32drv_arduino101" -Wl,--no-whole-archive \
 	-Wl,--start-group "-larc32drv_arduino101" -lnsim -lc -lm -lgcc $^ 
 
-do-compile: clean-all $(OUTNAME).elf
+do-compile: clean-all libarc32_arduino101 $(OUTNAME).elf
 	$(OBJCOPY) -S -O binary -R .note -R .comment -R COMMON -R .eh_frame $(OUTNAME).elf arc.bin
 	$(OBJCOPY) -S -O ihex -R .note -R .comment -R COMMON -R .eh_frame  $(OUTNAME).elf $(OUTNAME).hex
 
@@ -167,8 +174,10 @@ convert-sketch:
 	sed -i 's/^#line [0-9]*.*$$//g' $(current_dir)/$(SKETCH).cpp
 
 clean-all: clean
-	@echo Removing $(CORE_OBJS) $(CORE_A) $(CORELIBS_DIR)/cores/arduino/core.a
+	@echo Cleaning $(CORELIBS_DIR) ...
 	rm -f $(CORE_OBJS) $(CORE_A) $(CORELIBS_DIR)/cores/arduino/core.a
+	@echo Cleaning $(CORELIBS_DIR)/system/libarc32_arduino101 ...
+	cd $(CORELIBS_DIR)/system/libarc32_arduino101; make clean; cd -
 
 clean:
 	@echo Removing objects
